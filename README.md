@@ -251,6 +251,7 @@ _Note that Kubernetes annotation maps are all of Go type `map[string]string`.  A
 | <a name="default-whitelist"></a>deis-router | deployment | [router.deis.io/nginx.defaultWhitelist](#default-whitelist) | N/A | A default (router-wide) whitelist expressed as  a comma-delimited list of addresses (using IP or CIDR notation).  Application-specific whitelists can either extend or override this default. |
 | <a name="whitelist-mode"></a>deis-router | deployment | [router.deis.io/nginx.whitelistMode](#whitelist-mode) | `"extend"` | Whether application-specific whitelists should extend or override the router-wide default whitelist (if defined).  Valid values are `"extend"` and `"override"`. |
 | <a name="http2-enabled"></a>deis-router | deployment | [router.deis.io/nginx.http2Enabled](#http2-enabled) | `"true"` | Whether to enable HTTP2 for apps on the SSL ports. |
+| <a name="client-certificates"></a>deis-router | deployment | [router.deis.io/nginx.clientCertificates](#client-certificates) | N/A | Comma separated list of base64ed PEM certificates. Certificates are saved to a file and used with nginx's `ssl_client_certificate` setting. If any certificates are present, nginx's `ssl_verify_client` will be set to `"on"` |
 | <a name="ssl-enforce"></a>deis-router | deployment | [router.deis.io/nginx.ssl.enforce](#ssl-enforce) | `"false"` | Whether to respond with a 301 for all HTTP requests with a permanent redirect to the HTTPS equivalent address. |
 | <a name="ssl-protocols"></a>deis-router | deployment | [router.deis.io/nginx.ssl.protocols](#ssl-protocols) | `"TLSv1 TLSv1.1 TLSv1.2"` | nginx `ssl_protocols` setting. |
 | <a name="ssl-ciphers"></a>deis-router | deployment | [router.deis.io/nginx.ssl.ciphers](#ssl-ciphers) | `"ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS"` | nginx `ssl_ciphers`.  The default ciphers are taken from the intermediate compatibility section in the [Mozilla Wiki on Security/Server Side TLS](https://wiki.mozilla.org/Security/Server_Side_TLS). If the value is set to the empty string, OpenSSL's default ciphers are used.  In _all_ cases, server side cipher preferences (order matters) are used. |
@@ -401,6 +402,14 @@ data:
 When combined with a good certificate, the router's _default_ SSL options are sufficient to earn an A grade from [Qualys SSL Labs](https://www.ssllabs.com/ssltest/analyze.html).
 
 Earning an A+ is as easy as simply enabling HTTP Strict Transport Security (see the `router.deis.io/nginx.ssl.hsts.enabled` option), but be aware that this will implicitly trigger the `router.deis.io/nginx.ssl.enforce` option and cause your applications to permanently use HTTPS for _all_ requests.
+
+#### Client Certificates
+
+The deis-router can enforce that clients are only allowed to talk with your routable applications when clients provide a client certificate. Clients without the correct client cerficate will be denied at the router. 
+
+Client certificate enforcement is activated when the `router.deis.io/nginx.clientCertificates` annotation on the deis-router deployment is set to contain a base64 encoded certificate. Multiple certificates can be specified with comma separated values.
+
+Client certificants, when configured, are active on all applications/domains where deis-router is configured to use ssl. Using application-specific ssl certificates will turn on client-certificate verification for those applications. Using a platform domain and a platform certificate will turn on client-certificate verification for all routable applications.
 
 ### Front-facing load balancer
 

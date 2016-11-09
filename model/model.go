@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"strings"
@@ -56,7 +57,8 @@ type RouterConfig struct {
 	AppConfigs               []*AppConfig
 	BuilderConfig            *BuilderConfig
 	PlatformCertificate      *Certificate
-	HTTP2Enabled             bool `key:"http2Enabled" constraint:"(?i)^(true|false)$"`
+	HTTP2Enabled             bool     `key:"http2Enabled" constraint:"(?i)^(true|false)$"`
+	ClientCertificates       []string `key:"clientCertificates" constraint:"^[0-9a-zA-Z+\\/]+={0,2}(,[0-9a-zA-Z+\\/]+={0,2})*$"`
 }
 
 func newRouterConfig() *RouterConfig {
@@ -77,6 +79,7 @@ func newRouterConfig() *RouterConfig {
 		RequestIDs:               false,
 		SSLConfig:                newSSLConfig(),
 		HTTP2Enabled:             true,
+		ClientCertificates:       make([]string, 0),
 	}
 }
 
@@ -336,6 +339,15 @@ func buildRouterConfig(routerDeployment *v1beta1.Deployment, platformCertSecret 
 			return nil, err
 		}
 		routerConfig.SSLConfig.DHParam = dhParam
+	}
+	for i, certBase64ed := range routerConfig.ClientCertificates {
+		certBytes, err := base64.StdEncoding.DecodeString(certBase64ed)
+		if err != nil {
+			// log.Printf("WARN: Failed to decode the client certificate \"%s\" from base64.\n", name)
+			return nil, err
+		}
+		certStr := string(certBytes[:])
+		routerConfig.ClientCertificates[i] = certStr
 	}
 	return routerConfig, nil
 }

@@ -29,6 +29,7 @@ func TestBuildRouterConfig(t *testing.T) {
 				"router.deis.io/nginx.ssl.bufferSize":             "6k",
 				"router.deis.io/nginx.ssl.hsts.maxAge":            "1234",
 				"router.deis.io/nginx.ssl.hsts.includeSubDomains": "true",
+				"router.deis.io/nginx.clientCertificates":         "YXNkZg==,cXdlcnR5",
 			},
 			Labels: map[string]string{
 				"heritage": "deis",
@@ -88,6 +89,7 @@ func TestBuildRouterConfig(t *testing.T) {
 	sslConfig := newSSLConfig()
 	hstsConfig := newHSTSConfig()
 	platformCert := newCertificate("foo", "bar")
+	clientCerts := []string{"asdf", "qwerty"}
 
 	// A value not set in the deployment annotations (should be default value).
 	expectedConfig.MaxWorkerConnections = "768"
@@ -107,6 +109,7 @@ func TestBuildRouterConfig(t *testing.T) {
 	expectedConfig.SSLConfig = sslConfig
 
 	expectedConfig.PlatformCertificate = platformCert
+	expectedConfig.ClientCertificates = clientCerts
 
 	actualConfig, err := buildRouterConfig(&routerDeployment, &platformCertSecret, &dhParamSecret)
 	if err != nil {

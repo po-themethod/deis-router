@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig"
@@ -163,6 +164,11 @@ http {
 		ssl_certificate /opt/router/ssl/default/default.crt;
 		ssl_certificate_key /opt/router/ssl/default/default.key;
 		{{ end }}
+		{{ if $routerConfig.ClientCertificates }}
+		ssl_client_certificate /opt/router/ssl/client.ca.crt;
+		ssl_verify_client on;
+		{{ end }}
+
 		server_name _;
 		location ~ ^/healthz/?$ {
 			access_log off;
@@ -214,6 +220,12 @@ http {
 		ssl_session_tickets {{ if $sslConfig.UseSessionTickets }}on{{ else }}off{{ end }};
 		ssl_buffer_size {{ $sslConfig.BufferSize }};
 		{{ if ne $sslConfig.DHParam "" }}ssl_dhparam /opt/router/ssl/dhparam.pem;{{ end }}
+
+		{{ if $routerConfig.ClientCertificates }}
+		ssl_client_certificate /opt/router/ssl/client.ca.crt;
+		ssl_verify_client on;
+		{{ end }}
+
 		{{ end }}
 
 		{{ if or $routerConfig.EnforceWhitelists (or (ne (len $routerConfig.DefaultWhitelist) 0) (ne (len $appConfig.Whitelist) 0)) }}
@@ -261,7 +273,7 @@ http {
 
 			{{ if $hstsConfig.Enabled }}add_header Strict-Transport-Security $sts always;{{ end }}
 
-			proxy_pass http://{{$appConfig.ServiceIP}}:80;{{ else }}return 503;{{ end }}
+			proxy_pass http://{{$appConfig.ServiceIP}}:80;{{/* end of $appConfig.Available */}}{{ else }}return 503;{{ end }}
 		}
 		{{ if $appConfig.Maintenance }}error_page 503 @maintenance;
 			location @maintenance {
@@ -322,6 +334,12 @@ func WriteCerts(routerConfig *model.RouterConfig, sslPath string) error {
 				}
 			}
 		}
+	}
+
+	certPath := filepath.Join(sslPath, "client.ca.crt")
+	err = ioutil.WriteFile(certPath, []byte(strings.Join(routerConfig.ClientCertificates, "\n")), 0644)
+	if err != nil {
+		return err
 	}
 	return nil
 }

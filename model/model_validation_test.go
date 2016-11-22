@@ -135,6 +135,14 @@ func TestInvalidHTTP2Enabled(t *testing.T) {
 	testInvalidValues(t, newTestRouterConfig, "HTTP2Enabled", "http2Enabled", []string{"0", "-1", "foobar"})
 }
 
+func TestValidClientCerts(t *testing.T) {
+	testValidValues(t, newTestRouterConfig, "ClientCertificates", "clientCertificates", []string{"asdf", "two==", "one=", "z+/xcv", "poiu,lkjh==", "poiu,lkjh==,a+/s=,b"})
+}
+
+func TestInvalidClientCerts(t *testing.T) {
+	testInvalidValues(t, newTestRouterConfig, "ClientCertificates", "clientCertificates", []string{"asdf===", ",asdf==", "asdf=,", "asdf,,asdf", "", "=", "wi#a=="})
+}
+
 func TestInvalidGzipEnabled(t *testing.T) {
 	testInvalidValues(t, newTestGzipConfig, "Enabled", "enabled", []string{"0", "-1", "foobar"})
 }

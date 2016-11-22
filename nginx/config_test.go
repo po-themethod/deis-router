@@ -20,12 +20,17 @@ func TestWriteCerts(t *testing.T) {
 
 	// Create an extra crt/key pair to ensure they are correctly removed.
 	certPath := filepath.Join(sslPath, "extra.crt")
+	clientCertPath := filepath.Join(sslPath, "extra.client.ca.crt")
 	keyPath := filepath.Join(sslPath, "extra.key")
 	err = ioutil.WriteFile(certPath, []byte("foo"), 0644)
 	if err != nil {
 		t.Error(err)
 	}
-	err = ioutil.WriteFile(keyPath, []byte("bar"), 0600)
+	err = ioutil.WriteFile(certPath, []byte("bar"), 0644)
+	if err != nil {
+		t.Error(err)
+	}
+	err = ioutil.WriteFile(keyPath, []byte("qux"), 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -34,6 +39,7 @@ func TestWriteCerts(t *testing.T) {
 	expectedPlatformKey := "platform-baz"
 	expectedExampleCrt := "examplecom-crt"
 	expectedExampleKey := "examplecom-key"
+	expectedClientCert := "qwert\nyuiop\nasd\nfgh\njkl"
 	routerConfig := model.RouterConfig{
 		PlatformCertificate: &model.Certificate{
 			Cert: expectedPlatformCrt,
@@ -49,15 +55,22 @@ func TestWriteCerts(t *testing.T) {
 				},
 			},
 		},
+		ClientCertificates: []string{
+			"qwert\nyuiop",
+			"asd\nfgh\njkl",
+		},
 	}
 
 	WriteCerts(&routerConfig, sslPath)
 
 	// Any extra crt/key files should be removed.
-	if _, err := os.Stat(certPath); err == nil {
+	if _, err2 := os.Stat(certPath); err2 == nil {
 		t.Errorf("Expected extra.crt to be removed, but the file was found.")
 	}
-	if _, err := os.Stat(keyPath); err == nil {
+	if _, err2 := os.Stat(clientCertPath); err2 == nil {
+		t.Errorf("Expected extra.client.ca.crt to be removed, but the file was found.")
+	}
+	if _, err2 := os.Stat(keyPath); err2 == nil {
 		t.Errorf("Expected extra.key to be removed, but the file was found.")
 	}
 
@@ -73,6 +86,13 @@ func TestWriteCerts(t *testing.T) {
 	exampleCrtPath := filepath.Join(sslPath, "example.com.crt")
 	exampleKeyPath := filepath.Join(sslPath, "example.com.key")
 	err = checkCertAndKey(exampleCrtPath, exampleKeyPath, expectedExampleCrt, expectedExampleKey)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// example client crt should exist with correct permissions and contents.
+	clientCrtPath := filepath.Join(sslPath, "client.ca.crt")
+	err = checkCert(clientCrtPath, expectedClientCert)
 	if err != nil {
 		t.Error(err)
 	}
@@ -169,6 +189,9 @@ func TestWriteDHParam(t *testing.T) {
 
 func TestWriteConfig(t *testing.T) {
 	routerConfig := model.RouterConfig{}
+	routerConfig.GzipConfig = &model.GzipConfig{}
+	routerConfig.SSLConfig = &model.SSLConfig{}
+	routerConfig.SSLConfig.HSTSConfig = &model.HSTSConfig{}
 
 	tmpFile, err := ioutil.TempFile("", "test")
 	if err != nil {
@@ -176,7 +199,10 @@ func TestWriteConfig(t *testing.T) {
 	}
 	defer os.Remove(tmpFile.Name())
 
-	WriteConfig(&routerConfig, tmpFile.Name())
+	err = WriteConfig(&routerConfig, tmpFile.Name())
+	if err != nil {
+		t.Error("Config template engine failed:", err)
+	}
 
 	if _, err := os.Stat(tmpFile.Name()); os.IsNotExist(err) {
 		t.Errorf("Expected to find nginx config file. No file found.")
@@ -184,6 +210,19 @@ func TestWriteConfig(t *testing.T) {
 }
 
 func checkCertAndKey(crtPath string, keyPath string, expectedCertContents string, expectedKeyContents string) error {
+	err := checkCert(crtPath, expectedCertContents)
+	if err != nil {
+		return err
+	}
+	err2 := checkKey(keyPath, expectedKeyContents)
+	if err2 != nil {
+		return err2
+	}
+
+	return nil
+}
+
+func checkCert(crtPath string, expectedCertContents string) error {
 	actualCertContents, err := ioutil.ReadFile(crtPath)
 	if err != nil {
 		return err
@@ -193,6 +232,18 @@ func checkCertAndKey(crtPath string, keyPath string, expectedCertContents string
 		return fmt.Errorf("Expected test.crt contents, %s, does not match actual contents, %s.", expectedCertContents, string(actualCertContents))
 	}
 
+	expectedCertPerm := "-rw-r--r--" // 0644
+
+	crtInfo, _ := os.Stat(crtPath)
+	actualCertPerm := crtInfo.Mode().String()
+	if !reflect.DeepEqual(expectedCertPerm, actualCertPerm) {
+		return fmt.Errorf("Expected permission on test.crt, %s, does not match actual, %s.", expectedCertPerm, actualCertPerm)
+	}
+
+	return nil
+}
+
+func checkKey(keyPath string, expectedKeyContents string) error {
 	actualKeyContents, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		return err
@@ -201,14 +252,7 @@ func checkCertAndKey(crtPath string, keyPath string, expectedCertContents string
 		return fmt.Errorf("Expected test.key contents, %s, does not match actual contents, %s.", expectedKeyContents, string(actualKeyContents))
 	}
 
-	expectedCertPerm := "-rw-r--r--" // 0644
-	expectedKeyPerm := "-rw-------"  // 0600
-
-	crtInfo, _ := os.Stat(crtPath)
-	actualCertPerm := crtInfo.Mode().String()
-	if !reflect.DeepEqual(expectedCertPerm, actualCertPerm) {
-		return fmt.Errorf("Expected permission on test.crt, %s, does not match actual, %s.", expectedCertPerm, actualCertPerm)
-	}
+	expectedKeyPerm := "-rw-------" // 0600
 
 	keyInfo, _ := os.Stat(keyPath)
 	actualKeyPerm := keyInfo.Mode().String()

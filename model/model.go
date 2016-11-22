@@ -158,7 +158,7 @@ func newCertificate(cert string, key string) *Certificate {
 
 // SSLConfig represents SSL-related configuration options.
 type SSLConfig struct {
-	Enforce           bool        `key:"enforce" constraint:"(?i)^(true|false)$"`
+	Enforce           string      `key:"enforce" constraint:"(?i)^(true|false|external)$"`
 	Protocols         string      `key:"protocols" constraint:"^((SSLv2|SSLv3|TLSv1|TLSv1\\.1|TLSv1\\.2)\\s*)+$"`
 	Ciphers           string      `key:"ciphers" constraint:"^(!?[A-Z][A-Z\\d\\+-]+:?)*$"`
 	SessionCache      string      `key:"sessionCache" constraint:"^(off|none|((builtin(:[1-9]\\d*)?|shared:\\w+:[1-9]\\d*[kKmM]?)\\s*){1,2})$"`
@@ -171,7 +171,7 @@ type SSLConfig struct {
 
 func newSSLConfig() *SSLConfig {
 	return &SSLConfig{
-		Enforce:   false,
+		Enforce:   "false",
 		Protocols: "TLSv1 TLSv1.1 TLSv1.2",
 		// Default cipher suite:
 		//  - Prefer 128-Bit over 256-Bit encryptions (lower overhead)
@@ -337,6 +337,7 @@ func buildRouterConfig(routerDeployment *v1beta1.Deployment, platformCertSecret 
 		}
 		routerConfig.SSLConfig.DHParam = dhParam
 	}
+	routerConfig.SSLConfig.Enforce = strings.ToLower(routerConfig.SSLConfig.Enforce)
 	return routerConfig, nil
 }
 
@@ -394,6 +395,7 @@ func buildAppConfig(kubeClient *kubernetes.Clientset, service v1.Service, router
 		return nil, err
 	}
 	appConfig.Available = len(endpoints.Subsets) > 0 && len(endpoints.Subsets[0].Addresses) > 0
+	appConfig.SSLConfig.Enforce = strings.ToLower(appConfig.SSLConfig.Enforce)
 	return appConfig, nil
 }
 

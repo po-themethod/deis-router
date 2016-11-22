@@ -251,7 +251,7 @@ _Note that Kubernetes annotation maps are all of Go type `map[string]string`.  A
 | <a name="default-whitelist"></a>deis-router | deployment | [router.deis.io/nginx.defaultWhitelist](#default-whitelist) | N/A | A default (router-wide) whitelist expressed as  a comma-delimited list of addresses (using IP or CIDR notation).  Application-specific whitelists can either extend or override this default. |
 | <a name="whitelist-mode"></a>deis-router | deployment | [router.deis.io/nginx.whitelistMode](#whitelist-mode) | `"extend"` | Whether application-specific whitelists should extend or override the router-wide default whitelist (if defined).  Valid values are `"extend"` and `"override"`. |
 | <a name="http2-enabled"></a>deis-router | deployment | [router.deis.io/nginx.http2Enabled](#http2-enabled) | `"true"` | Whether to enable HTTP2 for apps on the SSL ports. |
-| <a name="ssl-enforce"></a>deis-router | deployment | [router.deis.io/nginx.ssl.enforce](#ssl-enforce) | `"false"` | Whether to respond with a 301 for all HTTP requests with a permanent redirect to the HTTPS equivalent address. |
+| <a name="ssl-enforce"></a>deis-router | deployment | [router.deis.io/nginx.ssl.enforce](#ssl-enforce) | `"false"` | Whether to respond with a 301 for all HTTP requests with a permanent redirect to the HTTPS equivalent address. Can be `"true"`, `"false"`, or `"external"` |
 | <a name="ssl-protocols"></a>deis-router | deployment | [router.deis.io/nginx.ssl.protocols](#ssl-protocols) | `"TLSv1 TLSv1.1 TLSv1.2"` | nginx `ssl_protocols` setting. |
 | <a name="ssl-ciphers"></a>deis-router | deployment | [router.deis.io/nginx.ssl.ciphers](#ssl-ciphers) | `"ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS"` | nginx `ssl_ciphers`.  The default ciphers are taken from the intermediate compatibility section in the [Mozilla Wiki on Security/Server Side TLS](https://wiki.mozilla.org/Security/Server_Side_TLS). If the value is set to the empty string, OpenSSL's default ciphers are used.  In _all_ cases, server side cipher preferences (order matters) are used. |
 | <a name="ssl-sessionCache"></a>deis-router | deployment | [router.deis.io/nginx.ssl.sessionCache](#ssl-sessionCache) | `""` | nginx `ssl_session_cache` setting. |
@@ -270,7 +270,7 @@ _Note that Kubernetes annotation maps are all of Go type `map[string]string`.  A
 | <a name="app-connect-timeout"></a>routable application | service | [router.deis.io/connectTimeout](#app-connect-timeout) | `"30s"` | nginx `proxy_connect_timeout` setting expressed in units `ms`, `s`, `m`, `h`, `d`, `w`, `M`, or `y`. |
 | <a name="app-tcp-timeout"></a>routable application | service | [router.deis.io/tcpTimeout](#app-tcp-timeout) | router's `defaultTimeout` | nginx `proxy_send_timeout` and `proxy_read_timeout` settings expressed in units `ms`, `s`, `m`, `h`, `d`, `w`, `M`, or `y`. |
 | <a name="app-maintenance"></a>routable application | service | [router.deis.io/maintenance](#app-maintenance) | `"false"` | Whether the app is under maintenance so that all traffic for this app is redirected to a static maintenance page with an error code of `503`. |
-| <a name="ssl-enforce"></a>routable application | service | [router.deis.io/ssl.enforce](#ssl-enforce) | `"false"` | Whether to respond with a 301 for all HTTP requests with a permanent redirect to the HTTPS equivalent address. |
+| <a name="ssl-enforce"></a>routable application | service | [router.deis.io/ssl.enforce](#ssl-enforce) | `"false"` | Whether to respond with a 301 for all HTTP requests with a permanent redirect to the HTTPS equivalent address. Can be `"true"`, `"false"`, or `"external"` |
 
 #### Annotations by example
 
@@ -401,6 +401,8 @@ data:
 When combined with a good certificate, the router's _default_ SSL options are sufficient to earn an A grade from [Qualys SSL Labs](https://www.ssllabs.com/ssltest/analyze.html).
 
 Earning an A+ is as easy as simply enabling HTTP Strict Transport Security (see the `router.deis.io/nginx.ssl.hsts.enabled` option), but be aware that this will implicitly trigger the `router.deis.io/nginx.ssl.enforce` option and cause your applications to permanently use HTTPS for _all_ requests.
+
+Setting `router.deis.io/nginx.ssl.enforce` to `"external"` will force clients to connect over a secure protocol when the client's source IPs is on an external network. Clients connecting from an internal network can be served from an insecure protocol. 
 
 ### Front-facing load balancer
 

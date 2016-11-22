@@ -252,7 +252,7 @@ func TestInvalidSSLEnforce(t *testing.T) {
 }
 
 func TestValidSSLEnforce(t *testing.T) {
-	testValidValues(t, newTestSSLConfig, "Enforce", "enforce", []string{"true", "false", "TRUE", "FALSE"})
+	testValidValues(t, newTestSSLConfig, "Enforce", "enforce", []string{"true", "false", "TRUE", "FALSE", "external", "EXTERNAL"})
 }
 
 func TestInvalidSSLProtocols(t *testing.T) {

@@ -124,9 +124,30 @@ http {
 		}
 	{{ end }}
 
+	geo $isInternalClient {
+		default         0;
+		127.0.0.1       1;
+		10.0.0.0/8      1;
+		172.16.0.0/12   1;
+		192.168.0.0/16  1;
+		100.64.0.0/10   1;
+	}
+
+	# The following map is only used when enforceSecure is set to "external":
+	#   if the scheme is already secure, or the client is coming from an internal address,
+	#   then there is no need to redirect to https
+	map "$isInternalClient:$access_scheme" $external_enforce_secure {
+		default             1;
+		"~^1:.*$"           0;
+		"~^.:(https|wss)$"  0;
+  }
+
+	{{ $enforceSecure := $sslConfig.Enforce }}
 	{{/* Since HSTS headers are not permitted on HTTP requests, 301 redirects to HTTPS resources are also necessary. */}}
 	{{/* This means we force HTTPS if HSTS is enabled. */}}
-	{{ $enforceSecure := or $sslConfig.Enforce $hstsConfig.Enabled }}
+	{{ if $hstsConfig.Enabled }}
+		{{ $enforceSecure := "true" }}
+	{{ end }}
 
 	# Default server handles requests for unmapped hostnames, including healthchecks
 	server {
@@ -226,9 +247,17 @@ http {
 			proxy_set_header X-Correlation-Id $correlation_id;
 			{{ end }}
 
-			{{ if or $enforceSecure $appConfig.SSLConfig.Enforce }}if ($access_scheme !~* "^https|wss$") {
+			{{/* If either the app.ssl or the router.ssl is configured with $enforce:="true",
+			     then that overrides the $enforce:="external" setting */}}
+			{{ if or ( eq $enforceSecure "true" ) ( eq $appConfig.SSLConfig.Enforce "true" ) }}
+			if ($access_scheme !~* "^https|wss$") {
 				return 301 $uri_scheme://$host$request_uri;
-			}{{ end }}
+			}
+			{{ else if or ( eq $enforceSecure "external" ) (eq $appConfig.SSLConfig.Enforce "external" ) }}
+			if ($external_enforce_secure) {
+				return 301 $uri_scheme://$host$request_uri;
+			}
+			{{ end }}
 
 			{{ if $hstsConfig.Enabled }}add_header Strict-Transport-Security $sts always;{{ end }}
 
